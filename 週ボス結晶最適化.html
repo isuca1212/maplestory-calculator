@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メイプルストーリー 週ボス結晶計算ツール</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        h1, h2 { color: #0056b3; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 1200px; margin: auto; }
+        .character-section, .boss-section, .settings-section { margin-bottom: 30px; }
+        .character-header { display: flex; align-items: center; margin-bottom: 15px; }
+        .character-header input { margin-right: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .character-header button { background-color: #007bff; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; }
+        .character-header button:hover { background-color: #0056b3; }
+        .character-list { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .character-pill { background-color: #e0f7fa; border: 1px solid #00bcd4; border-radius: 20px; padding: 5px 12px; display: flex; align-items: center; font-size: 0.9em; }
+        .character-pill button { background: none; border: none; color: #e57373; font-weight: bold; margin-left: 8px; cursor: pointer; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; /* テーブルレイアウトを固定 */ }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; word-wrap: break-word; /* 長い単語を改行 */ font-size: 0.9em; /* フォントサイズを少し小さく */ }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        .boss-name-col { text-align: left; width: 130px; /* 1行表示のために幅を調整 */ }
+        .price-col { width: 90px; /* 1行表示のために幅を調整 */ }
+        .character-cell-content { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .character-cell-content select { width: 55px; padding: 3px; font-size: 0.8em; /* ドロップダウンのフォントサイズも小さく */ }
+        .character-cell-content input[type="checkbox"] { transform: scale(1.1); /* チェックボックスを少し小さく */ }
+        
+        .calculate-button { background-color: #28a745; color: white; padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 18px; margin-top: 20px; display: block; width: fit-content; margin-left: auto; margin-right: auto; }
+        .calculate-button:hover { background-color: #218838; }
+        
+        .results { margin-top: 30px; padding: 20px; border: 1px dashed #0056b3; border-radius: 8px; background-color: #e6f7ff; }
+        .results h3 { margin-top: 0; color: #0056b3; }
+        .results p { margin: 5px 0; }
+        .results ul { list-style-type: none; padding: 0; }
+        .results li { background-color: #d9edf7; margin-bottom: 5px; padding: 8px; border-radius: 4px; text-align: left; }
+        .note { font-size: 0.9em; color: #888; margin-top: 15px; }
+        .settings-input { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .settings-input input[type="number"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 80px; text-align: center; }
+        
+        /* キャラクターがいない場合の調整 */
+        .boss-section table th:nth-child(3),
+        .boss-section table td:nth-child(3) {
+            width: auto; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>メイプルストーリー 週ボス結晶計算ツール</h1>
+        <p>「キャラクター追加」で所有キャラを登録し、各キャラが倒せるボスのチェックボックスをオンにしてください。</p>
+        <p>各キャラが各ボスを倒す際の「パーティー人数」も設定してください。</p>
+
+        <div class="settings-section">
+            <h2>計算設定</h2>
+            <div class="settings-input">
+                <label for="targetCrystalCount">目標結晶数（1～90個）:</label>
+                <input type="number" id="targetCrystalCount" value="90" min="1" max="90"> 個
+            </div>
+        </div>
+
+        <div class="character-section">
+            <h2>キャラクター設定</h2>
+            <div class="character-header">
+                <input type="text" id="newCharacterName" placeholder="新しいキャラ名を入力">
+                <button onclick="addCharacter()">キャラクター追加</button>
+            </div>
+            <div id="characterListDisplay" class="character-list">
+                </div>
+        </div>
+
+        <div class="boss-section">
+            <h2>ボス討伐能力設定</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="boss-name-col">ボス名</th>
+                        <th class="price-col">結晶価格（メル）</th>
+                        </tr>
+                </thead>
+                <tbody id="bossTableBody">
+                    </tbody>
+            </table>
+        </div>
+
+        <button class="calculate-button" onclick="calculateAndDisplayResults()">計算する</button>
+
+        <div id="results" class="results">
+            <h2>計算結果</h2>
+            <div id="planOutput"></div>
+            <p><strong>合計獲得結晶数:</strong> <span id="totalCrystalsOutput">0</span>個</p>
+            <p><strong>合計獲得メル（実質収入）:</strong> <span id="totalMeruOutput">0</span>メル</p>
+            <p id="minCharsNeededOutput"></p>
+            <p class="note">※暗黒の魔法使い（EX/H）の獲得メル・結晶数はこの計算には含まれていません。</p>
+        </div>
+    </div>
+
+    <script>
+        // 1. ボスデータ
+        const bossData = [
+            { name: "EX暗黒の魔法使い", price: 4000000000, excludeFromCalc: true },
+            { name: "EXカリーン", price: 1499600000, excludeFromCalc: false },
+            { name: "EX監視者カロス", price: 1296000000, excludeFromCalc: false },
+            { name: "EXセレン", price: 968000000, excludeFromCalc: false },
+            { name: "Hリンボ", price: 820700000, excludeFromCalc: false },
+            { name: "Hカリーン", price: 690000000, excludeFromCalc: false },
+            { name: "H暗黒の魔法使い", price: 677250000, excludeFromCalc: true },
+            { name: "C監視者カロス", price: 580000000, excludeFromCalc: false },
+            { name: "Nリンボ", price: 424125000, excludeFromCalc: false },
+            { name: "EXスウ", price: 299405000, excludeFromCalc: false },
+            { name: "Nカリーン", price: 296700000, excludeFromCalc: false },
+            { name: "N監視者カロス", price: 254000000, excludeFromCalc: false },
+            { name: "Eカリーン", price: 205425000, excludeFromCalc: false },
+            { name: "Hセレン", price: 186037500, excludeFromCalc: false },
+            { name: "E監視者カロス", price: 178500000, excludeFromCalc: false },
+            { name: "Nセレン", price: 159088125, excludeFromCalc: false },
+            { name: "H真・ヒラ", price: 128122000, excludeFromCalc: false },
+            { name: "Hデュンケル", price: 112191200, excludeFromCalc: false },
+            { name: "Cダスク", price: 107057100, excludeFromCalc: false },
+            { name: "Cガーディアンエンジェルスライム", price: 104310938, excludeFromCalc: false },
+            { name: "Hウィル", price: 101430000, excludeFromCalc: false },
+            { name: "N真・ヒラ", price: 97397760, excludeFromCalc: false },
+            { name: "Hルシード", price: 86800000, excludeFromCalc: false },
+            { name: "Hスウ", price: 79522713, excludeFromCalc: false },
+            { name: "Hデミアン", price: 75234375, excludeFromCalc: false },
+            { name: "Nデュンケル", price: 56562188, excludeFromCalc: false },
+            { name: "Nダスク", price: 53085375, excludeFromCalc: false },
+            { name: "Nウィル", price: 49721863, excludeFromCalc: false },
+            { name: "Nルシード", price: 43658438, excludeFromCalc: false },
+            { name: "Eウィル", price: 41047615, excludeFromCalc: false },
+            { name: "Eルシード", price: 37570000, excludeFromCalc: false },
+            { name: "Nガーディアンエンジェルスライム", price: 30889800, excludeFromCalc: false },
+            { name: "Nデミアン", price: 27716000, excludeFromCalc: false },
+            { name: "Nスウ", price: 26660250, excludeFromCalc: false },
+            { name: "アケチミツヒデ", price: 23040000, excludeFromCalc: false },
+            { name: "Cビシャスブラント", price: 21160000, excludeFromCalc: false },
+            { name: "Cベルルム", price: 16810000, excludeFromCalc: false },
+            { name: "Hマグナス", price: 15210000, excludeFromCalc: false },
+            { name: "Cブラッディクイーン", price: 13122000, excludeFromCalc: false },
+            { name: "ノウ姫", price: 13122000, excludeFromCalc: false },
+            { name: "Cバンバン", price: 13122000, excludeFromCalc: false },
+            { name: "Cジャクム", price: 13122000, excludeFromCalc: false },
+            { name: "Cピエール", price: 13122000, excludeFromCalc: false },
+            { name: "Nシグナス", price: 11704500, excludeFromCalc: false },
+            { name: "Cピンクビーン", price: 10496000, excludeFromCalc: false },
+            { name: "Hヒラ", price: 10012500, excludeFromCalc: false },
+            { name: "Eシグナス", price: 8196694, excludeFromCalc: false }
+        ];
+
+        // 2. 定数設定
+        const CRYSTAL_PER_CHAR_CAP = 12; // 1キャラあたりの結晶取得上限
+
+        // 3. キャラクターデータ (ローカルストレージからロード、または初期化)
+        let characters = JSON.parse(localStorage.getItem('mapleBossCalculatorCharacters')) || [];
+
+        // 4. UIの描画と更新
+        function renderUI() {
+            renderCharacterList();
+            renderBossTable();
+        }
+
+        // キャラクターリスト（ピル）を描画
+        function renderCharacterList() {
+            const characterListDisplay = document.getElementById('characterListDisplay');
+            characterListDisplay.innerHTML = '';
+            characters.forEach((char, charIndex) => {
+                const charPill = document.createElement('div');
+                charPill.className = 'character-pill';
+                charPill.innerHTML = `
+                    <span>${char.name}</span>
+                    <button onclick="removeCharacter(${charIndex})">x</button>
+                `;
+                characterListDisplay.appendChild(charPill);
+            });
+        }
+
+        // ボス討伐テーブルを描画
+        function renderBossTable() {
+            const bossTableBody = document.getElementById('bossTableBody');
+            const tableHeaderRow = document.querySelector('table thead tr');
+
+            // 既存のキャラクターヘッダーを削除 (ボス名と価格カラム以外)
+            const existingCharHeaders = tableHeaderRow.querySelectorAll('th:not(.boss-name-col):not(.price-col)');
+            existingCharHeaders.forEach(th => th.remove());
+
+            // キャラクターヘッダーを動的に追加
+            characters.forEach(char => {
+                const th = document.createElement('th');
+                th.textContent = char.name;
+                tableHeaderRow.appendChild(th);
+            });
+
+            // ボディのクリアと再生成
+            bossTableBody.innerHTML = '';
+            bossData.forEach(boss => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="boss-name-col">${boss.name}</td>
+                    <td class="price-col">${boss.price.toLocaleString()}</td>
+                    ${characters.map(char => {
+                        // canClearプロパティが適切に初期化されているか確認
+                        if (!char.canClear[boss.name]) {
+                            char.canClear[boss.name] = { checked: false, partySize: 1 };
+                        }
+                        const currentSettings = char.canClear[boss.name];
+                        return `
+                            <td>
+                                <div class="character-cell-content">
+                                    <input type="checkbox" id="check-${boss.name.replace(/ /g, '_')}-${char.id}" ${currentSettings.checked ? 'checked' : ''}
+                                        onclick="updateBossCapability('${char.id}', '${boss.name}', this.checked, document.getElementById('party-${boss.name.replace(/ /g, '_')}-${char.id}').value)">
+                                    <select id="party-${boss.name.replace(/ /g, '_')}-${char.id}"
+                                            onchange="updateBossCapability('${char.id}', '${boss.name}', document.getElementById('check-${boss.name.replace(/ /g, '_')}-${char.id}').checked, this.value)">
+                                        ${[1, 2, 3, 4, 5, 6].map(num => `<option value="${num}" ${currentSettings.partySize === num ? 'selected' : ''}>${num}人</option>`).join('')}
+                                    </select>
+                                </div>
+                            </td>
+                        `;
+                    }).join('')}
+                `;
+                bossTableBody.appendChild(row);
+            });
+
+            // キャラクターがいない場合の空の列の調整
+            if (characters.length === 0) {
+                const dummyTh = document.createElement('th');
+                // キャラクターカラムがない場合の残りの幅を適切に埋める
+                dummyTh.style.width = `calc(100% - ${document.querySelector('.boss-name-col').offsetWidth}px - ${document.querySelector('.price-col').offsetWidth}px)`;
+                tableHeaderRow.appendChild(dummyTh);
+                
+                bossData.forEach((boss, index) => {
+                    const row = bossTableBody.children[index];
+                    const dummyTd = document.createElement('td');
+                    row.appendChild(dummyTd);
+                });
+            }
+        }
+
+        // キャラクター追加
+        function addCharacter() {
+            const newCharacterNameInput = document.getElementById('newCharacterName');
+            const name = newCharacterNameInput.value.trim();
+            if (name && !characters.some(char => char.name === name)) {
+                const newChar = {
+                    id: Date.now().toString(), // ユニークなID
+                    name: name,
+                    canClear: {} // ボス名: { checked: boolean, partySize: number } のマップ
+                };
+                // 全てのボスに対して初期値（false, partySize: 1）を設定
+                bossData.forEach(boss => {
+                    newChar.canClear[boss.name] = { checked: false, partySize: 1 };
+                });
+                characters.push(newChar);
+                newCharacterNameInput.value = '';
+                saveCharacters();
+                renderUI();
+            } else if (name) {
+                alert('同じ名前のキャラクターが既に存在します。');
+            }
+        }
+
+        // キャラクター削除
+        function removeCharacter(index) {
+            if (confirm(`${characters[index].name} を削除しますか？`)) {
+                characters.splice(index, 1);
+                saveCharacters();
+                renderUI();
+            }
+        }
+
+        // ボス討伐能力の切り替えとパーティー人数の更新
+        function updateBossCapability(charId, bossName, checked, partySize) {
+            const char = characters.find(c => c.id === charId);
+            if (char) {
+                char.canClear[bossName] = {
+                    checked: checked,
+                    partySize: parseInt(partySize, 10)
+                };
+                saveCharacters();
+            }
+        }
+
+        // キャラクターデータをローカルストレージに保存
+        function saveCharacters() {
+            localStorage.setItem('mapleBossCalculatorCharacters', JSON.stringify(characters));
+        }
+
+        // 5. 計算実行
+        function calculateAndDisplayResults() {
+            const targetCrystalCountInput = document.getElementById('targetCrystalCount');
+            const targetCrystalCount = parseInt(targetCrystalCountInput.value, 10);
+
+            if (isNaN(targetCrystalCount) || targetCrystalCount < 1 || targetCrystalCount > 90) {
+                alert('目標結晶数は1から90の範囲で入力してください。');
+                return;
+            }
+
+            let availableCrystalOpportunities = []; // 各キャラが各ボスを倒す機会のリスト
+
+            // 全ての「結晶取得機会」をリストアップ
+            bossData.forEach(boss => {
+                if (boss.excludeFromCalc) return; // 除外対象のボスはスキップ
+
+                characters.forEach(char => {
+                    const capability = char.canClear[boss.name];
+                    if (capability && capability.checked) {
+                        const effectivePrice = boss.price / capability.partySize;
+                        availableCrystalOpportunities.push({
+                            bossName: boss.name,
+                            basePrice: boss.price,
+                            partySize: capability.partySize,
+                            effectivePrice: effectivePrice,
+                            charId: char.id,
+                            charName: char.name,
+                            isClaimed: false // この機会が既に計画に組み込まれたか
+                        });
+                    }
+                });
+            });
+
+            // 実質獲得メルが高い順にソート
+            availableCrystalOpportunities.sort((a, b) => b.effectivePrice - a.effectivePrice);
+
+            let currentCrystalsSold = 0;
+            let totalMeruEarned = 0;
+            const planDetails = []; // 最終的な計画の詳細
+
+            // キャラクターごとの結晶取得数をトラッキング
+            const crystalsPerCharacter = {};
+            characters.forEach(char => {
+                crystalsPerCharacter[char.id] = 0;
+            });
+
+            // 最適な結晶の組み合わせを選択
+            for (const opportunity of availableCrystalOpportunities) {
+                if (currentCrystalsSold >= targetCrystalCount) {
+                    break;
+                }
+                
+                // そのキャラクターの結晶上限を超えないかチェック
+                if (crystalsPerCharacter[opportunity.charId] < CRYSTAL_PER_CHAR_CAP) {
+                    currentCrystalsSold++;
+                    totalMeruEarned += opportunity.effectivePrice;
+                    crystalsPerCharacter[opportunity.charId]++;
+
+                    // 計画の詳細に追加
+                    planDetails.push({
+                        bossName: opportunity.bossName,
+                        charName: opportunity.charName,
+                        partySize: opportunity.partySize,
+                        effectivePricePerKill: opportunity.effectivePrice
+                    });
+                }
+            }
+
+            // 計画リストを整形して表示
+            const planList = document.createElement('ul');
+            // 同じボスを同じキャラが複数回倒す場合をまとめる
+            const summarizedPlan = {};
+            planDetails.forEach(item => {
+                const key = `${item.charName}-${item.bossName}-${item.partySize}`;
+                if (!summarizedPlan[key]) {
+                    summarizedPlan[key] = { ...item, kills: 0 };
+                }
+                summarizedPlan[key].kills++;
+            });
+
+            // 実質獲得価格でソートし直して表示
+            const sortedSummarizedPlan = Object.values(summarizedPlan).sort((a, b) => b.effectivePricePerKill - a.effectivePricePerKill);
+
+            sortedSummarizedPlan.forEach(item => {
+                const listItem = document.createElement('li');
+                listItem.textContent = `${item.charName} が ${item.bossName} を ${item.kills}体 (${item.partySize}人PT) 討伐 - 実質獲得価格 ${Math.floor(item.effectivePricePerKill).toLocaleString()}メル/個`;
+                planList.appendChild(listItem);
+            });
+
+
+            // 結果をHTMLに表示
+            document.getElementById('planOutput').innerHTML = '<h3>討伐計画（推奨順）:</h3>'; // 前回の結果をクリア
+            if (planList.children.length === 0) {
+                document.getElementById('planOutput').innerHTML += '<p>最適な討伐計画が見つかりませんでした。キャラクターとボス討伐能力を設定してください。</p>';
+            } else {
+                document.getElementById('planOutput').appendChild(planList);
+            }
+            
+            document.getElementById('totalCrystalsOutput').textContent = currentCrystalsSold;
+            document.getElementById('totalMeruOutput').textContent = Math.floor(totalMeruEarned).toLocaleString();
+
+            const minCharsNeeded = Math.ceil(targetCrystalCount / CRYSTAL_PER_CHAR_CAP);
+            document.getElementById('minCharsNeededOutput').textContent =
+                `（注）${targetCrystalCount}個の結晶を売るには最低 ${minCharsNeeded}体のキャラクターが必要です。`;
+        }
+
+        // ページ読み込み時にUIを初期描画
+        window.onload = renderUI;
+    </script>
+</body>
+</html>
